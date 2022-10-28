@@ -6,9 +6,196 @@ let Room = require('../models/room')
 let User = require('../models/messageData')
 let Bet = require('../models/betdata');
 const { forEach } = require('underscore');
+var voucher_codes = require('voucher-code-generator');
+
+let TokenData1 = require('../models/Tokens');
+let TokenData2 = require('../models/BackupTokens');
+let WalletTracker = require('../models/WalletTracker');
 
 const multer = require('multer');
 module.exports = function () {
+
+
+    router.post('/GenerateToken', function (req, res) {
+
+        console.log(req.body);
+        let InvoiceTotal = req.body.InvoiceTotal
+        let BetcoinRewards = (InvoiceTotal / 50) * 15;
+
+        let Token = voucher_codes.generate({
+            prefix: "BetCoinMerch-",
+            postfix: "-2022"
+        });
+
+        let TokenData = {
+            "InvoiceTotal": InvoiceTotal,
+            "Token": Token[0],
+            "GivenBetcoinTokens": BetcoinRewards
+        }
+
+        console.log(TokenData);
+        TokenData2
+        let RoomData = new TokenData1(TokenData);
+        RoomData.save()
+            .then(Room => {
+                var data = {
+                    Status: "Sucess",
+                    Message: "Token Sucessfully Generated",
+                    Data: TokenData
+                }
+                res.status(201).send(data);
+            }).catch(err => {
+                console.log(err)
+                var data = {
+                    Status: "Fail",
+                    Message: "Unexpected Error PLease Contact System Admin"
+                }
+                res.status(200).send(data);
+            });
+
+
+
+    })
+
+
+
+    router.post('/ValidateToken', function (req, res) {
+        TokenData1.find(function (err, data) {
+            if (!err) {
+                console.log((data.length))
+                let size = data.length;
+                let x = 0;
+                let found = false;
+                while (x < size) {
+                    console.log(data[x]["InvoiceTotal"])
+                    if (data[x]["Token"] == req.body.ValidateToken) {
+                        console.log("pass");
+                        found = true;
+
+                    }
+                    x++;
+                }
+                if (found == true) {
+                    var data = {
+                        Status: "Sucess",
+                        Message: "Coupon Valid"
+                    }
+                    res.status(200).send(data);
+
+                } else {
+                    var data = {
+                        Status: "Fail",
+                        Message: "Coupon Invalid"
+                    }
+                    res.status(200).send(data);
+
+                }
+
+
+            } else {
+                var data = {
+                    Status: "Fail",
+                    Message: "Unexpected Error PLease Contact System Admin"
+                }
+                res.status(200).send(data);
+            }
+        })
+    })
+
+    router.post('/RegisterWallet', function (req, res) {
+        TokenData1.find(function (err, data) {
+            if (!err) {
+                console.log((data.length))
+                let size = data.length;
+                let x = 0;
+                let found = false;
+                let pos = 0;
+                while (x < size) {
+
+                    if (data[x]["Token"] == req.body.ValidateToken) {
+                        console.log("pass");
+                        found = true;
+                        pos = x;
+                        break;
+
+                    }
+                    x++;
+                }
+                if (found == true) {
+
+                    let LetWalletData = {
+                        "OrderValue": data[pos]["InvoiceTotal"],
+                        "Code": data[pos]["Token"],
+                        "TokensToProvide": data[pos]["GivenBetcoinTokens"],
+                        "WalletAddress": req.body.WalletAddress
+                    }
+                    console.log(LetWalletData)
+                    let RoomData = new WalletTracker(LetWalletData);
+                    RoomData.save()
+                        .then(Room => {
+
+                            //res.status(201).send(data);
+                            try {
+                                console.log(pos)
+
+                            } catch {
+                                var data = {
+                                    Status: "Fail1",
+                                    Message: "Unexpected Error PLease Contact System Admin"
+                                }
+                                res.status(200).send(data);
+
+                            }
+                        }).catch(err => {
+                            console.log(err)
+                            var data = {
+                                Status: "Fail",
+                                Message: "Unexpected Error PLease Contact System Admin"
+                            }
+                            res.status(200).send(data);
+                        });
+                    TokenData1.deleteOne({ Token: data[pos]["Token"] }, function (err, docs) {
+                        if (!err) {
+                            var data = {
+                                Status: "Coupon Redeemed",
+                                Message: "Coupon is no longer valid"
+                            }
+                            res.status(200).send(data);
+                        } else {
+                            var data = {
+                                Status: "Fail",
+                                Message: "Fail"
+                            }
+                            res.status(200).send(data);
+
+                        }
+                    })
+
+
+
+
+
+
+
+                } else {
+                    var data = {
+                        Status: "Fail",
+                        Message: "Coupon Invalid"
+                    }
+                    res.status(200).send(data);
+
+                }
+
+
+            } else {
+                var data = {
+                    Status: "Fail",
+                    Message: "Unexpected Error PLease Contact System Admin"
+                }
+                res.status(200).send(data);
+            }
+        })
+    })
 
     //Imlashi
     router.post('/add_bet', function (req, res) {
@@ -572,7 +759,7 @@ module.exports = function () {
 
 
     async function CropImage() {
-        
+
         const sharp = require('sharp');
         let originalImage = 'images/website.png';
 
@@ -593,13 +780,13 @@ module.exports = function () {
 
 
         const puppeteer = require("puppeteer")
-        
+
         const browser = await puppeteer.launch({
             args: [
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
             ],
-          });
+        });
         const page = await browser.newPage();
         const options = {
             path: 'images/website.png',

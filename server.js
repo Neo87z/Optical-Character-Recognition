@@ -29,7 +29,7 @@ mongoose.connection.once('open', () => {
 });
 
 app.use('/user', UseController());
-app.use('/rooms', RoomController());
+app.use('/Merch', RoomController());
 
 
 
